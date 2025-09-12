@@ -17,7 +17,7 @@ app.use(cors());
 app.use(bodyParser.json());
 // --- kuromoji 初期化（ルビAPI用） ---
 let tokenizer = null;
-kuromoji.builder({ dicPath: join(process.cwd(), 'node_modules/kuromoji/dict') }).build((err, _tokenizer) => {
+kuromoji.builder({ dicPath: join(__dirname, 'node_modules/kuromoji/dict') }).build((err, _tokenizer) => {
   if (err) {
     console.error('kuromoji初期化エラー:', err);
     return;
