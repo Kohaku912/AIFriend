@@ -193,7 +193,7 @@ export default function App() {
     const prevForContext = displayedMessages.length ? displayedMessages[displayedMessages.length - 1] : null;
 
     try {
-      const resp = await fetch('http://localhost:4000/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: userMsg, personality: personality, previous: prevForContext, kanjiLevel }) });
+      const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: userMsg, personality: personality, previous: prevForContext, kanjiLevel }) });
 
       if (resp.status === 429) {
         const data = await resp.json().catch(() => ({}));
@@ -288,7 +288,7 @@ export default function App() {
 
   const RubyText = ({ text }) => {
     const [rubyText, setRubyText] = useState(text);
-    useEffect(() => { let mounted = true; (async () => { if (!showRuby) return setRubyText(text); const applied = applyRubyDictionary(text); if (applied !== text) return mounted && setRubyText(applied); try { const resp = await fetch('http://localhost:4000/api/ruby', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }); const data = await resp.json(); mounted && setRubyText(data.ruby || text); } catch (e) { mounted && setRubyText(text); } })(); return () => { mounted = false; } }, [text, showRuby, kanjiLevel]);
+    useEffect(() => { let mounted = true; (async () => { if (!showRuby) return setRubyText(text); const applied = applyRubyDictionary(text); if (applied !== text) return mounted && setRubyText(applied); try { const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/ruby', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }); const data = await resp.json(); mounted && setRubyText(data.ruby || text); } catch (e) { mounted && setRubyText(text); } })(); return () => { mounted = false; } }, [text, showRuby, kanjiLevel]);
     return <span dangerouslySetInnerHTML={{ __html: rubyText }} />;
   };
 
