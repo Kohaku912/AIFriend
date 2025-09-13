@@ -21,7 +21,7 @@
 
 * フロントエンド：React（シングルファイル構成のコンポーネント）
 * バックエンド：Node.js + Express
-* 日本語解析：kuromoji（サーバー）
+* 日本語解析：yahoo日本語形態素解析API
 * AI：Google GenAI（Gemini）
 * 永続化（クライアント）：`localStorage`（メッセージや解答履歴、設定を保存）
 * TTS：ブラウザの `speechSynthesis` API
