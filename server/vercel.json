@@ -1,8 +1,23 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "app.js": {
-      "includeFiles": "node_modules/kuromoji/dict/**"
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/ruby.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/chat.js",
+      "use": "@vercel/node"
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/api/ruby",
+      "dest": "/api/ruby.js"
+    },
+    {
+      "src": "/api/chat",
+      "dest": "/api/chat.js"
+    }
+  ]
 }
