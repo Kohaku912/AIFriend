@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/*.js": {
+    "*/server.js": {
       "includeFiles": "node_modules/kuromoji/dict/**"
     }
   }
