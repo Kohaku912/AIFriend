@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "app.js": {
+    "quiz.js": {
       "includeFiles": "node_modules/kuromoji/dict/**"
     }
   }

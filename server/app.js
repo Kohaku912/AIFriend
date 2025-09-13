@@ -1,1 +1,1 @@
-export { default } from './server-for-quiz.js';
+export { default } from './api/quiz.js';
