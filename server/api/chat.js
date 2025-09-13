@@ -7,7 +7,6 @@ dotenv.config();
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
   console.error('Missing GEMINI_API_KEY');
-  // Note: ここではレスポンスで 500 を返す
 }
 
 const ai = new GoogleGenAI({ apiKey });
@@ -125,8 +124,6 @@ export default async function handler(req, res) {
     }
 
     // メモリ上の会話履歴保存（簡易的）
-    // インスタンス永続性がサーバーレス関数では保証されないのであくまで参考
-    // フロント側で previous を管理することを推奨
     res.status(200).json({ reply: replyText });
     return;
   } else {

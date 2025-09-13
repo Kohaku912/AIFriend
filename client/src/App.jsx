@@ -477,8 +477,15 @@ export default function App() {
         <div style={{ padding: '10px 20px', background: personality.lightColor, borderBottom: '1px solid #e9ecef', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, color: personality.color }}>{personality.name}と会話中</div>
-              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{personality.tone}</div>
+              <div style={{ fontWeight: 600, color: personality.color }}>
+                <RubyText text={personality.name} preRubyHtml={rubyCacheRef.current[personality.name]} /> と会話中
+              </div>
+              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                <RubyText text={personality.tone} preRubyHtml={rubyCacheRef.current[personality.tone]} />
+              </div>
+              <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
+                <RubyText text={personality.extra} preRubyHtml={rubyCacheRef.current[personality.extra]} />
+              </div>
             </div>
             <div style={{ fontSize: 12, color: '#555' }}>{personality.genre}</div>
           </div>
@@ -506,7 +513,27 @@ export default function App() {
 
 
                   <div style={{ padding: '10px 14px', borderRadius: 16, background: m.role === 'user' ? '#007bff' : 'white', color: m.role === 'user' ? 'white' : '#333', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                    {m.isLoading ? <div>Loading...</div> : <RubyText text={m.text} preRubyHtml={m.ruby} />}
+                    {m.isLoading ? (
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center', height: 20 }}>
+                        <span style={{
+                          width: 6, height: 6, backgroundColor: '#666', borderRadius: '50%',
+                          animation: 'bounce 0.6s infinite alternate',
+                          animationDelay: '0s'
+                        }}></span>
+                        <span style={{
+                          width: 6, height: 6, backgroundColor: '#666', borderRadius: '50%',
+                          animation: 'bounce 0.6s infinite alternate',
+                          animationDelay: '0.2s'
+                        }}></span>
+                        <span style={{
+                          width: 6, height: 6, backgroundColor: '#666', borderRadius: '50%',
+                          animation: 'bounce 0.6s infinite alternate',
+                          animationDelay: '0.4s'
+                        }}></span>
+                      </div>
+                    ) : (
+                      <RubyText text={m.text} preRubyHtml={m.ruby} />
+                    )}
                     {m.quiz && (
                       <div style={{ marginTop: 10 }}>
                         {m.quiz.subfield && <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>分野: {m.quiz.subfield}</div>}

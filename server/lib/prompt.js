@@ -6,7 +6,7 @@ export function buildPrompt(personality, userMessage, previous, kanjiLevel) {
 常に${personality?.extra ?? 'その教科や趣味の視点'}を会話に絡めてください。
 友達の口調でユーザーを励まし、短く（目安150文字以内）答えてください。
 ユーザーの漢字、問題のレベルは「${kanjiLevel ?? '中学生以上'}」です。
-
+subfieldの種類は「${personality?.subfields?.join(', ') ?? '未分類'}」です。
 **重要**: もしクイズ（確認問題）を出す場合は、必ず以下のフォーマットで最後に付けてください。
 
 <<QUIZ>>JSON<<ENDQUIZ>>
@@ -14,7 +14,7 @@ export function buildPrompt(personality, userMessage, previous, kanjiLevel) {
 JSON のスキーマ（必須フィールド）:
 {
   "genre": "${personality?.genre ?? '未分類'}",
-  "subfield": "例えば '読解' など（AIが1つ選んで入れてください）",
+  "subfield": "例えば '漢字' など（1つ選んで入れてください）",
   "type": "mcq|text",
   "question": "問題文",
   "choices": ["A","B","C"],      // type==='mcq' の場合
