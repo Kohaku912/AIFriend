@@ -1,4 +1,4 @@
-import app from './quiz.js';
+import app from '../quiz.js';
 
 
 export default app;
