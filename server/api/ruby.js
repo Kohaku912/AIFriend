@@ -1,4 +1,13 @@
-import { getTokenizer, specialReadings, kataToHira } from '../lib/tokenizer.js';
+import TinySegmenter from 'tiny-segmenter';
+import { toHiragana } from 'wanakana';
+
+// 特殊読み仮名
+const specialReadings = {
+  言葉: 'ことは',
+  数十: 'かずと',
+};
+
+const segmenter = new TinySegmenter();
 
 export default async function handler(req, res) {
   // --- CORS 対応 ---
@@ -17,33 +26,25 @@ export default async function handler(req, res) {
     return;
   }
 
-  let tokenizer;
-  try {
-    tokenizer = await getTokenizer();
-  } catch (e) {
-    console.error('Tokenizer get error:', e);
-    res.status(500).json({ error: 'Tokenizer initialization failed' });
-    return;
-  }
-
   const { text } = req.body;
   if (!text) {
     res.status(400).json({ error: 'text is required' });
     return;
   }
 
-  const tokens = tokenizer.tokenize(text);
+  // TinySegmenter で分かち書き
+  const tokens = segmenter.segment(text);
+
   let result = '';
   for (const token of tokens) {
-    const surface = token.surface_form;
-    let reading = kataToHira(token.reading);
-    if (specialReadings[surface]) {
-      reading = specialReadings[surface];
-    }
-    if (reading && /[\u4e00-\u9faf]/.test(surface)) {
-      result += `<ruby>${surface}<rt>${reading}</rt></ruby>`;
+    let reading = toHiragana(token); // カタカナ→ひらがな
+    if (specialReadings[token]) reading = specialReadings[token];
+
+    // 漢字なら ruby タグを付与
+    if (/[一-龯]/.test(token)) {
+      result += `<ruby>${token}<rt>${reading}</rt></ruby>`;
     } else {
-      result += surface;
+      result += token;
     }
   }
 
