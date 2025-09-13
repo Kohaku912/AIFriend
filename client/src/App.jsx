@@ -288,7 +288,34 @@ export default function App() {
 
   const RubyText = ({ text }) => {
     const [rubyText, setRubyText] = useState(text);
-    useEffect(() => { let mounted = true; (async () => { if (!showRuby) return setRubyText(text); const applied = applyRubyDictionary(text); if (applied !== text) return mounted && setRubyText(applied); try { const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/ruby', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }); const data = await resp.json(); mounted && setRubyText(data.ruby || text); } catch (e) { mounted && setRubyText(text); } })(); return () => { mounted = false; } }, [text, showRuby, kanjiLevel]);
+    useEffect(() => {
+      let mounted = true;
+      (async () => {
+        if (!showRuby) return setRubyText(text);
+
+        // すでに <ruby> がある場合はAPI呼び出しをスキップ
+        if (/<ruby>.*<\/ruby>/.test(text)) {
+          return mounted && setRubyText(text);
+        }
+
+        const applied = applyRubyDictionary(text);
+        if (applied !== text) return mounted && setRubyText(applied);
+
+        try {
+          const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/ruby', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+          });
+          const data = await resp.json();
+          mounted && setRubyText(data.ruby || text);
+        } catch (e) {
+          mounted && setRubyText(text);
+        }
+      })();
+      return () => { mounted = false; };
+    }, [text, showRuby, kanjiLevel]);
+
     return <span dangerouslySetInnerHTML={{ __html: rubyText }} />;
   };
 
