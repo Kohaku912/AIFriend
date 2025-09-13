@@ -338,7 +338,14 @@ export default function App() {
         return;
       }
 
-      // 4) 最後にAPI呼び出し（初回のみキャッシュに入れる）
+      // 4) 既にルビ付きかどうかの判定を追加（HTMLエンティティやrubyタグの変形も考慮）
+      if (text.includes('<ruby>') || text.includes('&lt;ruby&gt;')) {
+        rubyCache.set(text, text);
+        if (mounted) setRubyText(text);
+        return;
+      }
+
+      // 5) 最後にAPI呼び出し（初回のみキャッシュに入れる）
       (async () => {
         try {
           const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/ruby', {
