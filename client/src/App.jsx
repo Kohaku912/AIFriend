@@ -285,39 +285,52 @@ export default function App() {
   }
 
   const handleKeyPress = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
-
+  const rubyCache = {};
   const RubyText = ({ text }) => {
-    const [rubyText, setRubyText] = useState(text);
-    useEffect(() => {
-      let mounted = true;
-      (async () => {
-        if (!showRuby) return setRubyText(text);
+  const [rubyText, setRubyText] = useState(text);
 
-        // すでに <ruby> がある場合はAPI呼び出しをスキップ
-        if (/<ruby>.*<\/ruby>/.test(text)) {
-          return mounted && setRubyText(text);
-        }
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!showRuby) return setRubyText(text);
 
-        const applied = applyRubyDictionary(text);
-        if (applied !== text) return mounted && setRubyText(applied);
+      // すでに <ruby> がある場合はAPI呼び出しをスキップ
+      if (/<ruby>.*<\/ruby>/.test(text)) {
+        return mounted && setRubyText(text);
+      }
 
-        try {
-          const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/ruby', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
-          });
-          const data = await resp.json();
-          mounted && setRubyText(data.ruby || text);
-        } catch (e) {
-          mounted && setRubyText(text);
-        }
-      })();
-      return () => { mounted = false; };
-    }, [text, showRuby, kanjiLevel]);
+      // キャッシュにあればそれを使用
+      if (rubyCache[text]) {
+        return mounted && setRubyText(rubyCache[text]);
+      }
 
-    return <span dangerouslySetInnerHTML={{ __html: rubyText }} />;
-  };
+      // まず辞書で置換
+      const applied = applyRubyDictionary(text);
+      if (applied !== text) {
+        rubyCache[text] = applied;
+        return mounted && setRubyText(applied);
+      }
+
+      // API呼び出し
+      try {
+        const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/ruby', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const data = await resp.json();
+        const finalText = data.ruby || text;
+        rubyCache[text] = finalText;
+        mounted && setRubyText(finalText);
+      } catch (e) {
+        mounted && setRubyText(text);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [text, showRuby, kanjiLevel]);
+
+  return <span dangerouslySetInnerHTML={{ __html: rubyText }} />;
+};
 
   const displayedMessages = messagesByPersona[personality.id] || [];
   const messagesForDisplay = [...displayedMessages];
