@@ -1,5 +1,3 @@
-// api/chat.js
-import { VercelRequest, VercelResponse } from '@vercel/node';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { buildPrompt, extractQuizJsonFromText, buildQuizPrompt } from '../lib/prompt.js';

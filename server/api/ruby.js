@@ -1,5 +1,3 @@
-// api/ruby.js
-import { VercelRequest, VercelResponse } from '@vercel/node';  // optional, types
 import { getTokenizer, specialReadings, kataToHira } from '../lib/tokenizer.js';
 
 export default async function handler(req, res) {
