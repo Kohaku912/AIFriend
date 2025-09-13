@@ -18,3 +18,15 @@ export function getTokenizer() {
     });
   });
 }
+
+export const specialReadings = {
+  '言葉': 'ことは',
+  '数十': 'かずと',
+};
+
+export function kataToHira(katakana) {
+  if (!katakana) return katakana;
+  return katakana.replace(/[\u30a1-\u30f6]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0x60)
+  );
+}
