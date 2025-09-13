@@ -33,7 +33,7 @@ export default async function handler(req, res) {
   try {
     const response = await fetch('https://jlp.yahooapis.jp/MAService/V2/parse', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', "User-Agent": "Yahoo AppID: " + clientId },
       body: JSON.stringify({
         id: 'ruby-api',
         jsonrpc: '2.0',
