@@ -110,7 +110,19 @@ function BarChart({ items, width = 280, height = 24, max = 100 }) {
 }
 
 export default function App() {
-  const [messagesByPersona, setMessagesByPersona] = useState(() => JSON.parse(localStorage.getItem('messagesByPersona') || '{}'));
+  const [messagesByPersona, setMessagesByPersona] = useState(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('messagesByPersona') || '{}');
+      // すべてのメッセージに id を付与しておく（既にあればそのまま）
+      Object.keys(raw).forEach(pid => {
+        raw[pid] = (raw[pid] || []).map(m => m.id ? m : { ...m, id: uuidv4() });
+      });
+      return raw;
+    } catch (e) {
+      return {};
+    }
+  });
+
   const [text, setText] = useState('');
   const [personality, setPersonality] = useState(defaultPersonalities[0]);
   const [isLoading, setIsLoading] = useState(false);
@@ -285,51 +297,71 @@ export default function App() {
   }
 
   const handleKeyPress = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
-  const rubyCache = {};
+  const rubyCache = new Map();
   const RubyText = ({ text }) => {
-    const [rubyText, setRubyText] = useState(text);
-    const fetchedRef = useRef(false);
+    const [rubyText, setRubyText] = useState(() => {
+      // 初期レンダリングで可能ならすぐ返す（既に <ruby> が付いている、辞書で置換される、またはキャッシュがある）
+      if (/<ruby>.*<\/ruby>/.test(text)) return text;
+      const applied = applyRubyDictionary(text);
+      if (applied !== text) return applied;
+      const cached = rubyCache.get(text);
+      if (cached) return cached;
+      return text;
+    });
 
     useEffect(() => {
       let mounted = true;
+      if (!showRuby) {
+        if (mounted) setRubyText(text);
+        return;
+      }
+
+      // 1) 既に <ruby> タグがあるならキャッシュしてセットして終了
+      if (/<ruby>.*<\/ruby>/.test(text)) {
+        rubyCache.set(text, text);
+        if (mounted) setRubyText(text);
+        return;
+      }
+
+      // 2) まず辞書置換を試す（applyRubyDictionary）
+      const applied = applyRubyDictionary(text);
+      if (applied !== text) {
+        rubyCache.set(text, applied);
+        if (mounted) setRubyText(applied);
+        return;
+      }
+
+      // 3) キャッシュがあればそれを使う
+      const cached = rubyCache.get(text);
+      if (cached) {
+        if (mounted) setRubyText(cached);
+        return;
+      }
+
+      // 4) 最後にAPI呼び出し（初回のみキャッシュに入れる）
       (async () => {
-        if (!showRuby) return mounted && setRubyText(text);
-
-        // すでにルビを取得済みならスキップ
-        if (fetchedRef.current) return;
-
-        // textに既にルビタグがあればスキップ
-        if (/<ruby>.*<\/ruby>/.test(text)) {
-          fetchedRef.current = true;
-          return mounted && setRubyText(text);
-        }
-
-        const applied = applyRubyDictionary(text);
-        if (applied !== text) {
-          fetchedRef.current = true;
-          return mounted && setRubyText(applied);
-        }
-
         try {
           const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/ruby', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
+            body: JSON.stringify({ text, kanjiLevel })
           });
           const data = await resp.json();
-          fetchedRef.current = true;
-          mounted && setRubyText(data.ruby || text);
+          const finalText = data?.ruby || text;
+          rubyCache.set(text, finalText);
+          if (mounted) setRubyText(finalText);
         } catch (e) {
-          fetchedRef.current = true;
-          mounted && setRubyText(text);
+          // エラー時は元のテキストにフォールバック（だがキャッシュには text を入れておく）
+          rubyCache.set(text, text);
+          if (mounted) setRubyText(text);
         }
       })();
+
       return () => { mounted = false; };
     }, [text, showRuby, kanjiLevel]);
 
     return <span dangerouslySetInnerHTML={{ __html: rubyText }} />;
   };
-
 
   const displayedMessages = messagesByPersona[personality.id] || [];
   const messagesForDisplay = [...displayedMessages];
@@ -394,7 +426,7 @@ export default function App() {
             </div>
           ) : (
             messagesForDisplay.map((m, i) => (
-              <div key={i} ref={i === messagesForDisplay.length - 1 ? lastMessageRef : null} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
+              <div key={m.id || i} ref={i === messagesForDisplay.length - 1 ? lastMessageRef : null} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
                 <div style={{ maxWidth: '75%', display: 'flex', alignItems: 'flex-start', gap: 8, flexDirection: m.role === 'user' ? 'row-reverse' : 'row' }}>
                   {m.role === 'user' ? (
                     <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#007bff', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>You</div>
