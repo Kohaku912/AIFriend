@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/*.js": {
-      "includeFiles": ["node_modules/kuromoji/dict/**"]
+      "includeFiles": "node_modules/kuromoji/dict/**"
     }
   }
 }
