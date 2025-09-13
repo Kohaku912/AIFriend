@@ -17,6 +17,7 @@
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "kuromoji": "^0.1.2",
+    "node-fetch": "^3.3.2",
     "tiny-segmenter": "^0.2.0",
     "wanakana": "^5.3.1"
   },

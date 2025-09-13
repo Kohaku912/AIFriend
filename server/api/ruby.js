@@ -1,22 +1,13 @@
-import TinySegmenter from 'tiny-segmenter';
-import { toHiragana } from 'wanakana';
-
-// 特殊読み仮名
-const specialReadings = {
-  言葉: 'ことは',
-  数十: 'かずと',
-};
-
-const segmenter = new TinySegmenter();
+// api/ruby.js
+import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
-  // --- CORS 対応 ---
-  res.setHeader('Access-Control-Allow-Origin', '*'); // 必要に応じて特定ドメインに変更
+  // CORS対応
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
-    // プリフライトリクエストに 200 で応答
     res.status(200).end();
     return;
   }
@@ -32,21 +23,42 @@ export default async function handler(req, res) {
     return;
   }
 
-  // TinySegmenter で分かち書き
-  const tokens = segmenter.segment(text);
-
-  let result = '';
-  for (const token of tokens) {
-    let reading = toHiragana(token); // カタカナ→ひらがな
-    if (specialReadings[token]) reading = specialReadings[token];
-
-    // 漢字なら ruby タグを付与
-    if (/[一-龯]/.test(token)) {
-      result += `<ruby>${token}<rt>${reading}</rt></ruby>`;
-    } else {
-      result += token;
-    }
+  const clientId = process.env.YAHOO_CLIENT_ID;
+  if (!clientId) {
+    res.status(500).json({ error: 'Missing Yahoo! Client ID' });
+    return;
   }
 
-  res.status(200).json({ ruby: result });
+  try {
+    const response = await fetch('https://jlp.yahooapis.jp/MAService/V2/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: 'ruby-api',
+        jsonrpc: '2.0',
+        method: 'jlp.maservice.parse',
+        params: { q: text },
+      }),
+    });
+
+    const data = await response.json();
+    if (data.error) {
+      res.status(500).json({ error: data.error.message });
+      return;
+    }
+
+    const rubyText = data.result.tokens
+      .map(([surface, reading]) => {
+        if (reading && /[一-龯々〆〤]/.test(surface)) {
+          return `<ruby>${surface}<rt>${reading}</rt></ruby>`;
+        }
+        return surface;
+      })
+      .join('');
+
+    res.status(200).json({ ruby: rubyText });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 }
