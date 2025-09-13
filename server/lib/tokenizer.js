@@ -1,28 +1,36 @@
-import kuromoji from 'kuromoji';
-import { join } from 'path';
+// api/ruby.js
+import TinySegmenter from 'tiny-segmenter';
+import { toHiragana } from 'wanakana';
 
-let tokenizer = null;
+const segmenter = new TinySegmenter();
+const specialReadings = { 言葉: 'ことは', 数十: 'かずと' };
 
-export function getTokenizer() {
-  if (tokenizer) return Promise.resolve(tokenizer);
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  return new Promise((resolve, reject) => {
-    kuromoji.builder({ dicPath: join(process.cwd(), 'lib/kuromoji_dict') }).build((err, _tokenizer) => {
-      if (err) {
-        console.error('kuromoji 初期化エラー:', err);
-        reject(err);
-      } else {
-        tokenizer = _tokenizer;
-        resolve(tokenizer);
-      }
-    });
-  });
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ error: 'text is required' });
+
+  const tokens = segmenter.segment(text);
+  let result = '';
+  for (const token of tokens) {
+    let reading = toHiragana(token);
+    if (specialReadings[token]) reading = specialReadings[token];
+    if (/[一-龯]/.test(token)) {
+      result += `<ruby>${token}<rt>${reading}</rt></ruby>`;
+    } else {
+      result += token;
+    }
+  }
+
+  res.status(200).json({ ruby: result });
 }
 
-export const specialReadings = {
-  '言葉': 'ことは',
-  '数十': 'かずと',
-};
 
 export function kataToHira(katakana) {
   if (!katakana) return katakana;
