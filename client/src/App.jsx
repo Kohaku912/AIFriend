@@ -287,50 +287,49 @@ export default function App() {
   const handleKeyPress = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
   const rubyCache = {};
   const RubyText = ({ text }) => {
-  const [rubyText, setRubyText] = useState(text);
+    const [rubyText, setRubyText] = useState(text);
+    const fetchedRef = useRef(false);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!showRuby) return setRubyText(text);
+    useEffect(() => {
+      let mounted = true;
+      (async () => {
+        if (!showRuby) return mounted && setRubyText(text);
 
-      // すでに <ruby> がある場合はAPI呼び出しをスキップ
-      if (/<ruby>.*<\/ruby>/.test(text)) {
-        return mounted && setRubyText(text);
-      }
+        // すでにルビを取得済みならスキップ
+        if (fetchedRef.current) return;
 
-      // キャッシュにあればそれを使用
-      if (rubyCache[text]) {
-        return mounted && setRubyText(rubyCache[text]);
-      }
+        // textに既にルビタグがあればスキップ
+        if (/<ruby>.*<\/ruby>/.test(text)) {
+          fetchedRef.current = true;
+          return mounted && setRubyText(text);
+        }
 
-      // まず辞書で置換
-      const applied = applyRubyDictionary(text);
-      if (applied !== text) {
-        rubyCache[text] = applied;
-        return mounted && setRubyText(applied);
-      }
+        const applied = applyRubyDictionary(text);
+        if (applied !== text) {
+          fetchedRef.current = true;
+          return mounted && setRubyText(applied);
+        }
 
-      // API呼び出し
-      try {
-        const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/ruby', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
-        });
-        const data = await resp.json();
-        const finalText = data.ruby || text;
-        rubyCache[text] = finalText;
-        mounted && setRubyText(finalText);
-      } catch (e) {
-        mounted && setRubyText(text);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [text, showRuby, kanjiLevel]);
+        try {
+          const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/ruby', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+          });
+          const data = await resp.json();
+          fetchedRef.current = true;
+          mounted && setRubyText(data.ruby || text);
+        } catch (e) {
+          fetchedRef.current = true;
+          mounted && setRubyText(text);
+        }
+      })();
+      return () => { mounted = false; };
+    }, [text, showRuby, kanjiLevel]);
 
-  return <span dangerouslySetInnerHTML={{ __html: rubyText }} />;
-};
+    return <span dangerouslySetInnerHTML={{ __html: rubyText }} />;
+  };
+
 
   const displayedMessages = messagesByPersona[personality.id] || [];
   const messagesForDisplay = [...displayedMessages];
