@@ -496,7 +496,7 @@ export default function App() {
             </div>
           ) : (
             messagesForDisplay.map((m, i) => (
-              <div key={m.id || i} ref={i === messagesForDisplay.length - 1 ? lastMessageRef : null} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
+              <div key={m.id || i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
                 <div style={{ maxWidth: '75%', display: 'flex', alignItems: 'flex-start', gap: 8, flexDirection: m.role === 'user' ? 'row-reverse' : 'row' }}>
                   {m.role === 'user' ? (
                     <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#007bff', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>You</div>
@@ -504,8 +504,9 @@ export default function App() {
                     <img src={`/icons/${personality.id}.png`} alt={personality.name} style={{ width: 24, height: 24, borderRadius: '50%' }} onClick={() => setSelectedPersona(personality)} />
                   )}
 
+
                   <div style={{ padding: '10px 14px', borderRadius: 16, background: m.role === 'user' ? '#007bff' : 'white', color: m.role === 'user' ? 'white' : '#333', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                    {m.isLoading ? <LoadingDots color={personality.color} fontSize={currentFontSize.multiplier} /> : <RubyText text={m.text} />}
+                    {m.isLoading ? <div>Loading...</div> : <RubyText text={m.text} preRubyHtml={m.ruby} />}
                     {m.quiz && (
                       <div style={{ marginTop: 10 }}>
                         {m.quiz.subfield && <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>分野: {m.quiz.subfield}</div>}
