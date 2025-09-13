@@ -23,18 +23,42 @@ const applyRubyDictionary = (text) => {
   return result;
 };
 
-const LoadingDots = ({ color, fontSize }) => {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '4px 0' }}>
-      {[0, 1, 2].map(i => (
-        <div key={i} style={{ width: `${4 * fontSize}px`, height: `${4 * fontSize}px`, backgroundColor: color || '#666', borderRadius: '50%', animation: `bounce 1.4s infinite ease-in-out`, animationDelay: `${i * 0.16}s`, animationFillMode: 'both' }} />
-      ))}
-      <style jsx>{`@keyframes bounce { 0%,80%,100% { transform: scale(0.8); opacity:0.5 } 40% { transform: scale(1.2); opacity:1 } }`}</style>
-    </div>
-  );
-};
+// --- rubyStore: persistent map text -> rubyHtml ---
+const RUBY_STORE_KEY = 'rubyStore_v1';
+function loadRubyStore() {
+  try {
+    return JSON.parse(localStorage.getItem(RUBY_STORE_KEY) || '{}');
+  } catch (e) { return {}; }
+}
+function saveRubyStore(store) {
+  try { localStorage.setItem(RUBY_STORE_KEY, JSON.stringify(store)); } catch (e) { }
+}
 
-// --- Helpers for quiz parsing and storage ---
+// Prepopulate ruby store for static UI texts and personality names using dictionary
+function prefillRubyStoreIfNeeded() {
+  const store = loadRubyStore();
+  // personality names
+  for (const p of defaultPersonalities) {
+    if (!store[p.name]) store[p.name] = applyRubyDictionary(p.name);
+    if (!store[p.extra]) store[p.extra] = applyRubyDictionary(p.extra);
+  }
+  // dictionary entries
+  for (const k of Object.keys(rubyDictionary)) {
+    if (!store[k]) store[k] = `<ruby>${k}<rt>${rubyDictionary[k]}</rt></ruby>`;
+  }
+  // some common UI labels (if you use constant strings in app)
+  const staticLabels = [
+    '本日の送信上限に達しています。明日以降お試しください。',
+    '通信エラーが発生しました。',
+    '正解！',
+    '不正解。'
+  ];
+  for (const s of staticLabels) if (!store[s]) store[s] = s;
+  saveRubyStore(store);
+  return store;
+}
+
+// --- Helpers for quiz parsing and storage (unchanged) ---
 function parseQuizFromText(text) {
   const start = text.indexOf('<<QUIZ>>');
   const end = text.indexOf('<<ENDQUIZ>>');
@@ -110,12 +134,24 @@ function BarChart({ items, width = 280, height = 24, max = 100 }) {
 }
 
 export default function App() {
+  // prefill ruby store once
+  useEffect(() => { prefillRubyStoreIfNeeded(); }, []);
+
   const [messagesByPersona, setMessagesByPersona] = useState(() => {
     try {
       const raw = JSON.parse(localStorage.getItem('messagesByPersona') || '{}');
-      // すべてのメッセージに id を付与しておく（既にあればそのまま）
+      const store = loadRubyStore();
+      // add ids and inject ruby if available in store
       Object.keys(raw).forEach(pid => {
-        raw[pid] = (raw[pid] || []).map(m => m.id ? m : { ...m, id: uuidv4() });
+        raw[pid] = (raw[pid] || []).map(m => {
+          const base = m.id ? m : { ...m, id: uuidv4() };
+          // if message already has ruby, keep it; otherwise try to resolve from store
+          if (!base.ruby) {
+            const candidate = store[base.text];
+            if (candidate) base.ruby = candidate;
+          }
+          return base;
+        });
       });
       return raw;
     } catch (e) {
@@ -190,16 +226,25 @@ export default function App() {
     return (String(quiz.genre || '') === '英語') && (listeningKeywords.test(sub) || listeningKeywords.test(qtxt));
   }
 
+  // NEW: central ruby cache in memory (initialized from localStorage)
+  const rubyCacheRef = useRef(loadRubyStore());
+  // helper to persist and update
+  function mergeIntoRubyCache(obj) {
+    const store = { ...rubyCacheRef.current, ...obj };
+    rubyCacheRef.current = store;
+    saveRubyStore(store);
+  }
+
   async function send() {
     if (!text.trim() || isLoading) return;
     if (limitReached) {
-      setMessagesByPersona(prev => { const copy = { ...prev }; copy[personality.id] = [...(copy[personality.id] || []), { role: 'assistant', text: '本日の送信上限に達しています。明日以降お試しください。' }]; return copy; });
+      setMessagesByPersona(prev => { const copy = { ...prev }; copy[personality.id] = [...(copy[personality.id] || []), { id: uuidv4(), role: 'assistant', text: '本日の送信上限に達しています。明日以降お試しください。', ruby: rubyCacheRef.current['本日の送信上限に達しています。明日以降お試しください。'] }]; return copy; });
       return;
     }
     const userMsg = text.trim();
     setText('');
     setIsLoading(true);
-    setMessagesByPersona(prev => { const copy = { ...prev }; copy[personality.id] = [...(copy[personality.id] || []), { role: 'user', text: userMsg }]; return copy; });
+    setMessagesByPersona(prev => { const copy = { ...prev }; copy[personality.id] = [...(copy[personality.id] || []), { id: uuidv4(), role: 'user', text: userMsg, ruby: rubyCacheRef.current[userMsg] }]; return copy; });
 
     const displayedMessages = messagesByPersona[personality.id] || [];
     const prevForContext = displayedMessages.length ? displayedMessages[displayedMessages.length - 1] : null;
@@ -212,12 +257,21 @@ export default function App() {
         const resetAt = data.reset ? new Date(data.reset) : null;
         setRateInfo(prev => ({ ...prev, count: prev.count >= prev.limit ? prev.limit : prev.count, limit: prev.limit, resetAt, date: todayKey() }));
         setLimitReached(true);
-        setMessagesByPersona(prev => { const copy = { ...prev }; copy[personality.id] = [...(copy[personality.id] || []), { role: 'assistant', text: data.message || '本日の送信上限に達しました。' }]; return copy; });
+        setMessagesByPersona(prev => { const copy = { ...prev }; copy[personality.id] = [...(copy[personality.id] || []), { id: uuidv4(), role: 'assistant', text: data.message || '本日の送信上限に達しました。', ruby: rubyCacheRef.current[data.message] }]; return copy; });
         return;
       }
 
       const data = await resp.json();
       let reply = data.reply || 'ごめん、応答できなかったよ。';
+
+      // If server returned rubyMap (many key -> rubyHtml), merge it to our store
+      if (data.rubyMap && typeof data.rubyMap === 'object') {
+        mergeIntoRubyCache(data.rubyMap);
+      }
+
+      // If server returned a single ruby string for the reply, prefer it
+      // data.ruby might be the html for reply text
+      const replyRuby = data.ruby || rubyCacheRef.current[reply] || null;
 
       let parsed = parseQuizFromText(reply);
       let quizObj = null;
@@ -230,11 +284,25 @@ export default function App() {
 
       setRateInfo(prev => { const newCount = (prev.date === todayKey() ? prev.count : 0) + 1; const updated = { count: newCount, limit: prev.limit || DAILY_LIMIT, resetAt: prev.resetAt, date: todayKey() }; return updated; });
 
-      setMessagesByPersona(prev => { const copy = { ...prev }; copy[personality.id] = [...(copy[personality.id] || []), { role: 'assistant', text: replyClean, quiz: quizObj }]; return copy; });
+      // Store message including ruby if available and also persist to ruby store for later
+      setMessagesByPersona(prev => {
+        const copy = { ...prev };
+        const msgObj = { id: uuidv4(), role: 'assistant', text: replyClean, quiz: quizObj };
+        if (replyRuby) {
+          msgObj.ruby = replyRuby;
+          mergeIntoRubyCache({ [replyClean]: replyRuby });
+        } else {
+          // if server returned rubyMap earlier, maybe replyClean now exists in cache
+          const cached = rubyCacheRef.current[replyClean];
+          if (cached) msgObj.ruby = cached;
+        }
+        copy[personality.id] = [...(copy[personality.id] || []), msgObj];
+        return copy;
+      });
 
     } catch (err) {
       console.error(err);
-      setMessagesByPersona(prev => { const copy = { ...prev }; copy[personality.id] = [...(copy[personality.id] || []), { role: 'assistant', text: '通信エラーが発生しました。' }]; return copy; });
+      setMessagesByPersona(prev => { const copy = { ...prev }; copy[personality.id] = [...(copy[personality.id] || []), { id: uuidv4(), role: 'assistant', text: '通信エラーが発生しました。', ruby: rubyCacheRef.current['通信エラーが発生しました。'] }]; return copy; });
     } finally {
       setIsLoading(false);
     }
@@ -253,7 +321,7 @@ export default function App() {
     if (hasAttemptForQuiz(quiz.id)) {
       setMessagesByPersona(prev => {
         const copy = { ...prev };
-        copy[personality.id] = [...(copy[personality.id] || []), { role: 'assistant', text: 'この問題は既に回答済みです。' }];
+        copy[personality.id] = [...(copy[personality.id] || []), { id: uuidv4(), role: 'assistant', text: 'この問題は既に回答済みです。' }];
         return copy;
       });
       return;
@@ -297,55 +365,51 @@ export default function App() {
   }
 
   const handleKeyPress = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
-  const rubyCache = new Map();
-  const RubyText = ({ text }) => {
+
+  // UPDATED RubyText: accept both pre-rendered ruby (html) or plain text that may require generation
+  const RubyText = ({ text, preRubyHtml }) => {
     const [rubyText, setRubyText] = useState(() => {
-      // 初期レンダリングで可能ならすぐ返す（既に <ruby> が付いている、辞書で置換される、またはキャッシュがある）
-      if (/<ruby>.*<\/ruby>/.test(text)) return text;
+      // if preRubyHtml is provided, use it immediately
+      if (preRubyHtml) return preRubyHtml;
+      // if text already contains <ruby> tags assume it's ready
+      if (/<ruby>.*<rt>.*<\/rt><\/ruby>/.test(text)) return text;
+      // try dictionary-based conversion
       const applied = applyRubyDictionary(text);
       if (applied !== text) return applied;
-      const cached = rubyCache.get(text);
+      // try local cache
+      const cached = rubyCacheRef.current[text];
       if (cached) return cached;
       return text;
     });
 
     useEffect(() => {
       let mounted = true;
-      if (!showRuby) {
+      if (!preRubyHtml && !showRuby) {
         if (mounted) setRubyText(text);
         return;
       }
 
-      // 1) 既に <ruby> タグがあるならキャッシュしてセットして終了
-      if (/<ruby>.*<\/ruby>/.test(text)) {
-        rubyCache.set(text, text);
+      // if preRubyHtml exists use it
+      if (preRubyHtml) {
+        if (mounted) setRubyText(preRubyHtml);
+        // ensure cache
+        mergeIntoRubyCache({ [text]: preRubyHtml });
+        return;
+      }
+
+      // if text already has ruby tags or cached, set and skip API
+      if (/<ruby>.*<rt>.*<\/rt><\/ruby>/.test(text)) {
+        mergeIntoRubyCache({ [text]: text });
         if (mounted) setRubyText(text);
         return;
       }
-
-      // 2) まず辞書置換を試す（applyRubyDictionary）
-      const applied = applyRubyDictionary(text);
-      if (applied !== text) {
-        rubyCache.set(text, applied);
-        if (mounted) setRubyText(applied);
-        return;
-      }
-
-      // 3) キャッシュがあればそれを使う
-      const cached = rubyCache.get(text);
+      const cached = rubyCacheRef.current[text];
       if (cached) {
         if (mounted) setRubyText(cached);
         return;
       }
 
-      // 4) 既にルビ付きかどうかの判定を追加（HTMLエンティティやrubyタグの変形も考慮）
-      if (text.includes('<ruby>') || text.includes('&lt;ruby&gt;')) {
-        rubyCache.set(text, text);
-        if (mounted) setRubyText(text);
-        return;
-      }
-
-      // 5) 最後にAPI呼び出し（初回のみキャッシュに入れる）
+      // As last resort call server ruby API (rare)
       (async () => {
         try {
           const resp = await fetch('https://ai-friend-zhfu.vercel.app/api/ruby', {
@@ -355,24 +419,23 @@ export default function App() {
           });
           const data = await resp.json();
           const finalText = data?.ruby || text;
-          rubyCache.set(text, finalText);
+          mergeIntoRubyCache({ [text]: finalText });
           if (mounted) setRubyText(finalText);
         } catch (e) {
-          // エラー時は元のテキストにフォールバック（だがキャッシュには text を入れておく）
-          rubyCache.set(text, text);
+          mergeIntoRubyCache({ [text]: text });
           if (mounted) setRubyText(text);
         }
       })();
 
       return () => { mounted = false; };
-    }, [text, showRuby, kanjiLevel]);
+    }, [text, preRubyHtml, showRuby, kanjiLevel]);
 
     return <span dangerouslySetInnerHTML={{ __html: rubyText }} />;
   };
 
   const displayedMessages = messagesByPersona[personality.id] || [];
   const messagesForDisplay = [...displayedMessages];
-  if (isLoading) messagesForDisplay.push({ role: 'assistant', text: '', isLoading: true });
+  if (isLoading) messagesForDisplay.push({ id: 'loading', role: 'assistant', text: '', isLoading: true });
 
   const stats = computeStats(attempts);
   const subfieldDataForDetail = detailGenre ? computeSubfieldStats(attempts, detailGenre) : [];
