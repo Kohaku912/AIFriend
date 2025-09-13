@@ -1,9 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/app.js": {
-      "memory": 1024,
-      "maxDuration": 10,
+    "app.js": {
       "includeFiles": "node_modules/kuromoji/dict/**"
     }
   }
