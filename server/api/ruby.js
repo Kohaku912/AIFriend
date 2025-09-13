@@ -1,10 +1,22 @@
 import { getTokenizer, specialReadings, kataToHira } from '../lib/tokenizer.js';
 
 export default async function handler(req, res) {
+  // --- CORS 対応 ---
+  res.setHeader('Access-Control-Allow-Origin', '*'); // 必要に応じて特定ドメインに変更
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    // プリフライトリクエストに 200 で応答
+    res.status(200).end();
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method Not Allowed' });
     return;
   }
+
   let tokenizer;
   try {
     tokenizer = await getTokenizer();
@@ -13,6 +25,7 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Tokenizer initialization failed' });
     return;
   }
+
   const { text } = req.body;
   if (!text) {
     res.status(400).json({ error: 'text is required' });
@@ -33,5 +46,6 @@ export default async function handler(req, res) {
       result += surface;
     }
   }
+
   res.status(200).json({ ruby: result });
 }
