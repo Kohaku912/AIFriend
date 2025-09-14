@@ -107,7 +107,7 @@ export default async function handler(req, res) {
       console.warn('Quiz JSON missing fields:', missing);
       try {
         const regen = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-2.5-pro',
           contents: buildQuizPrompt(personality, message),
         });
         const regenText = (regen?.text) || (Array.isArray(regen?.outputs) && regen.outputs[0]?.content) || '';
